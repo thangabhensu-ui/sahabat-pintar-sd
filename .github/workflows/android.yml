@@ -1,0 +1,52 @@
+name: Build Sahabat Pintar SD APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Extract Android project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" -print -quit)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ZIP project tidak ditemukan."
+            exit 1
+          fi
+          mkdir -p build-source
+          unzip -q "$ZIP_FILE" -d build-source
+          WRAPPER=$(find build-source -type f -name gradlew -print -quit)
+          if [ -z "$WRAPPER" ]; then
+            echo "gradlew tidak ditemukan."
+            exit 1
+          fi
+          chmod +x "$WRAPPER"
+          echo "PROJECT_DIR=$(dirname "$WRAPPER")" >> "$GITHUB_ENV"
+
+      - name: Build debug APK
+        run: |
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sahabat-pintar-sd-apk
+          path: build-source/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
